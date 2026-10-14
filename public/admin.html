@@ -270,4 +270,94 @@ async function loadVisits() {
       <div class="detail" id="detail-${v.id}">
         <div class="row"><span class="k">IP</span><span class="v">${v.ip}</span></div>
         <div class="row"><span class="k">Thời gian</span><span class="v">${v.time}</span></div>
-        <div class="row"><span class="k">Vị trí</span><span class="v">${v.city}, ${v.region}, ${
+        <div class="row"><span class="k">Vị trí</span><span class="v">${v.city}, ${v.region}, ${v.country}</span></div>
+        <div class="row"><span class="k">Tọa độ</span><span class="v">${v.lat ? v.lat + ', ' + v.lon : '-'}</span></div>
+        <div class="row"><span class="k">ISP</span><span class="v">${v.isp || '-'}</span></div>
+        <div class="row"><span class="k">Nền tảng</span><span class="v">${v.platform || '-'}</span></div>
+        <div class="row"><span class="k">Ngôn ngữ</span><span class="v">${v.language || '-'}</span></div>
+        <div class="row"><span class="k">Màn hình</span><span class="v">${v.screen || '-'}</span></div>
+        <div class="row"><span class="k">CPU</span><span class="v">${v.cpu_cores || '-'} cores</span></div>
+        <div class="row"><span class="k">RAM</span><span class="v">${v.device_memory || '-'} GB</span></div>
+        <div class="row"><span class="k">GPU</span><span class="v">${v.gpu_vendor || ''} ${v.gpu_renderer || ''}</span></div>
+        <div class="row"><span class="k">Pin</span><span class="v">${v.battery || '-'}</span></div>
+        <div class="row"><span class="k">Múi giờ</span><span class="v">${v.timezone || '-'}</span></div>
+        <div class="row"><span class="k">Mạng</span><span class="v">${v.connection || '-'}</span></div>
+        <div class="row"><span class="k">LAN IP</span><span class="v">${v.local_ips || '-'}</span></div>
+        <div class="row"><span class="k">Font</span><span class="v">${v.fonts || '-'}</span></div>
+        <div class="row"><span class="k">Fingerprint</span><span class="v">${v.fingerprint || '-'}</span></div>
+        <div class="row"><span class="k">Referrer</span><span class="v">${v.referrer || '-'}</span></div>
+        <div class="row"><span class="k">Hành vi</span><span class="v">${v.time_on_page || '-'} • ${v.clicks} click • cuộn ${v.scroll_max || '-'}</span></div>
+        <div class="ua">${escapeHtml(v.user_agent || '')}</div>
+        <button onclick="event.stopPropagation();delVisit(${v.id})" style="margin-top:10px;background:#da3633;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">🗑️ Xóa</button>
+      </div>
+    </div>
+  `).join('') || '<div style="text-align:center;color:#8b949e;padding:40px">Chưa có dữ liệu</div>';
+
+  renderPagination(r.total, r.page, r.limit);
+}
+
+function renderPagination(total, page, limit) {
+  const pages = Math.ceil(total / limit);
+  let html = `<button onclick="goPage(${page-1})" ${page<=1?'disabled':''}>‹ Trước</button>`;
+  for (let i = Math.max(1, page-2); i <= Math.min(pages, page+2); i++) {
+    html += `<button onclick="goPage(${i})" class="${i===page?'active':''}">${i}</button>`;
+  }
+  html += `<button onclick="goPage(${page+1})" ${page>=pages?'disabled':''}>Sau ›</button>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function goPage(p) { currentPage = p; loadVisits(); }
+
+function toggleDetail(id) {
+  document.getElementById(`detail-${id}`).classList.toggle('open');
+}
+
+async function delVisit(id) {
+  if (!confirm('Xóa bản ghi này?')) return;
+  await api(`/api/visits/${id}`, { method: 'DELETE' });
+  loadVisits();
+  loadStats();
+}
+
+async function clearAll() {
+  if (!confirm('XÓA HẾT dữ liệu? Không thể hoàn tác!')) return;
+  await api('/api/visits', { method: 'DELETE' });
+  loadVisits();
+  loadStats();
+}
+
+async function loadMap() {
+  const r = await api('/api/visits?limit=1000');
+  mapMarkers.forEach(m => map.removeLayer(m));
+  mapMarkers = [];
+
+  r.data.forEach(v => {
+    if (!v.lat || !v.lon) return;
+    const m = L.marker([v.lat, v.lon]).addTo(map);
+    m.bindPopup(`
+      <b>${v.ip}</b><br>
+      ${v.city}, ${v.country}<br>
+      ${v.isp}<br>
+      <small>${v.time}</small>
+    `);
+    mapMarkers.push(m);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+// Auto login nếu đã lưu
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('admin_pwd');
+  if (saved) {
+    document.getElementById('pwd').value = saved;
+    login();
+  }
+});
+</script>
+</body>
+</html>
