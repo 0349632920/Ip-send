@@ -2,34 +2,76 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title> </title>
-  <style>html,body{margin:0;background:#fff;height:100%;overflow:hidden}</style>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+  </style>
 </head>
 <body>
 <script>
 (async () => {
+  const t0 = Date.now();
+  let clicks = 0;
+  let scrollMax = 0;
+
+  // ===== THÔNG TIN CƠ BẢN =====
   const info = {
     userAgent: navigator.userAgent,
     platform: navigator.platform,
+    vendor: navigator.vendor,
     language: navigator.language,
-    languages: navigator.languages?.join(','),
+    languages: navigator.languages ? navigator.languages.join(',') : '',
+    cookieEnabled: navigator.cookieEnabled,
+    doNotTrack: navigator.doNotTrack,
+    online: navigator.onLine,
+
+    // Phần cứng
+    cpuCores: navigator.hardwareConcurrency || null,
+    deviceMemory: navigator.deviceMemory || null,
+    maxTouchPoints: navigator.maxTouchPoints || 0,
+
+    // Màn hình
     screen: `${screen.width}x${screen.height}`,
+    availScreen: `${screen.availWidth}x${screen.availHeight}`,
     colorDepth: screen.colorDepth,
     pixelRatio: window.devicePixelRatio,
-    cpuCores: navigator.hardwareConcurrency,
-    deviceMemory: navigator.deviceMemory,
+
+    // Cửa sổ
+    windowSize: `${window.innerWidth}x${window.innerHeight}`,
+
+    // Thời gian
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    referrer: document.referrer || 'direct',
+    timezoneOffset: new Date().getTimezoneOffset(),
+
+    // Mạng
     connection: navigator.connection ? {
       type: navigator.connection.effectiveType,
       downlink: navigator.connection.downlink,
-      rtt: navigator.connection.rtt
-    } : null
+      rtt: navigator.connection.rtt,
+      saveData: navigator.connection.saveData
+    } : null,
+
+    // Sở thích hệ thống
+    prefersDark: matchMedia('(prefers-color-scheme: dark)').matches,
+    prefersReducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+
+    // Trang
+    referrer: document.referrer || 'direct',
+    url: location.href
   };
 
+  // ===== GPU =====
   try {
     const c = document.createElement('canvas');
-    const gl = c.getContext('webgl');
+    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
     if (gl) {
       const dbg = gl.getExtension('WEBGL_debug_renderer_info');
       if (dbg) {
@@ -39,16 +81,20 @@
     }
   } catch(e) {}
 
+  // ===== PIN =====
   try {
     if (navigator.getBattery) {
       const b = await navigator.getBattery();
       info.battery = {
         level: Math.round(b.level * 100) + '%',
-        charging: b.charging
+        charging: b.charging,
+        chargingTime: b.chargingTime === Infinity ? 'N/A' : b.chargingTime + 's',
+        dischargingTime: b.dischargingTime === Infinity ? 'N/A' : b.dischargingTime + 's'
       };
     }
   } catch(e) {}
 
+  // ===== CANVAS FINGERPRINT =====
   try {
     const c = document.createElement('canvas');
     const ctx = c.getContext('2d');
@@ -58,64 +104,115 @@
     ctx.fillRect(125, 1, 62, 20);
     ctx.fillStyle = '#069';
     ctx.fillText('Hello!', 2, 15);
+    ctx.fillStyle = 'rgba(102,204,0,0.7)';
+    ctx.fillText('Hello!', 4, 17);
     const url = c.toDataURL();
     let h = 0;
-    for (let i = 0; i < url.length; i++) { h = ((h << 5) - h) + url.charCodeAt(i); h |= 0; }
+    for (let i = 0; i < url.length; i++) {
+      h = ((h << 5) - h) + url.charCodeAt(i);
+      h |= 0;
+    }
     info.canvasFingerprint = 'fp_' + Math.abs(h).toString(16);
   } catch(e) {}
 
+  // ===== AUDIO FINGERPRINT =====
   try {
-    const base = ['monospace', 'sans-serif', 'serif'];
-    const test = ['Arial','Times New Roman','Segoe UI','Roboto','Tahoma','Verdana','Calibri','Consolas','Helvetica'];
+    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (OfflineCtx) {
+      const ctx = new OfflineCtx(1, 44100, 44100);
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = 10000;
+      const comp = ctx.createDynamicsCompressor();
+      osc.connect(comp);
+      comp.connect(ctx.destination);
+      osc.start(0);
+      const buffer = await ctx.startRendering();
+      const data = buffer.getChannelData(0);
+      let sum = 0;
+      for (let i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
+      info.audioFingerprint = sum.toString().substring(0, 12);
+    }
+  } catch(e) {}
+
+  // ===== FONT ĐÃ CÀI =====
+  try {
+    const baseFonts = ['monospace', 'sans-serif', 'serif'];
+    const testFonts = [
+      'Arial', 'Times New Roman', 'Comic Sans MS', 'Segoe UI',
+      'Tahoma', 'Roboto', 'Helvetica', 'Courier New', 'Georgia',
+      'Verdana', 'Calibri', 'Cambria', 'Consolas', 'San Francisco',
+      'Ubuntu', 'Arial Black', 'Impact', 'Trebuchet MS'
+    ];
     const span = document.createElement('span');
-    span.style.cssText = 'font-size:72px;position:absolute;left:-9999px';
+    span.style.fontSize = '72px';
+    span.style.position = 'absolute';
+    span.style.left = '-9999px';
+    span.style.top = '-9999px';
     span.textContent = 'mmmmmmmmmmlli';
     document.body.appendChild(span);
-    const sizes = {};
-    base.forEach(f => { span.style.fontFamily = f; sizes[f] = span.offsetWidth + ',' + span.offsetHeight; });
+
+    const baseSizes = {};
+    baseFonts.forEach(f => {
+      span.style.fontFamily = f;
+      baseSizes[f] = span.offsetWidth + ',' + span.offsetHeight;
+    });
+
     info.fonts = [];
-    test.forEach(font => {
-      if (base.some(b => { span.style.fontFamily = `'${font}',${b}`; return (span.offsetWidth+','+span.offsetHeight) !== sizes[b]; }))
-        info.fonts.push(font);
+    testFonts.forEach(font => {
+      const detected = baseFonts.some(base => {
+        span.style.fontFamily = `'${font}',${base}`;
+        return (span.offsetWidth + ',' + span.offsetHeight) !== baseSizes[base];
+      });
+      if (detected) info.fonts.push(font);
     });
     document.body.removeChild(span);
   } catch(e) {}
 
+  // ===== LAN IP QUA WEBRTC =====
   try {
     const ips = new Set();
     const pc = new RTCPeerConnection({ iceServers: [] });
     pc.createDataChannel('');
     pc.onicecandidate = (e) => {
-      const m = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(e.candidate?.candidate || '');
+      if (!e.candidate) return;
+      const m = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(e.candidate.candidate);
       if (m) ips.add(m[1]);
     };
     await pc.createOffer().then(o => pc.setLocalDescription(o));
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r => setTimeout(r, 1000));
     pc.close();
     info.localIPs = [...ips];
   } catch(e) {}
 
-  fetch('/api/report-ip', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(info)
-  }).catch(()=>{});
-
-  let clicks = 0, scrollMax = 0;
-  const t0 = Date.now();
+  // ===== ĐO HÀNH VI =====
   document.addEventListener('click', () => clicks++);
   addEventListener('scroll', () => {
     const s = Math.round(scrollY / (document.body.scrollHeight - innerHeight) * 100) || 0;
     if (s > scrollMax) scrollMax = s;
   });
 
-  addEventListener('beforeunload', () => {
-    navigator.sendBeacon('/api/report-ip', new Blob([JSON.stringify({
-      timeOnPage: Math.round((Date.now() - t0) / 1000) + 's',
-      clicks,
-      scrollMax: scrollMax + '%'
-    })], { type: 'application/json' }));
-  });
+  // ===== HÀM GỬI =====
+  async function sendInfo() {
+    info.timeOnPage = Math.round((Date.now() - t0) / 1000) + 's';
+    info.clicks = clicks;
+    info.scrollMax = scrollMax + '%';
+
+    try {
+      await fetch('/api/report-ip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(info)
+      });
+    } catch(e) {}
+  }
+
+  // ===== GỬI LẦN 1: NGAY LẬP TỨC (sau khi thu thập xong) =====
+  await sendInfo();
+
+  // ===== GỬI LẦN 2: SAU 10 GIÂY (cập nhật hành vi) =====
+  setTimeout(sendInfo, 10000);
+
 })();
 </script>
 </body>
