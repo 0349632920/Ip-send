@@ -2,65 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fetch = require('node-fetch');
-const Database = require('better-sqlite3');
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ===== MIDDLEWARE =====
 app.set('trust proxy', true);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-
-// ===== DATABASE =====
-const DB_PATH = process.env.RENDER
-  ? '/data/visits.db'
-  : path.join(__dirname, 'visits.db');
-
-let db;
-try {
-  db = new Database(DB_PATH);
-} catch (e) {
-  console.log('Không mở được /data, dùng thư mục hiện tại');
-  db = new Database(path.join(__dirname, 'visits.db'));
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS visits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ip TEXT,
-    time TEXT,
-    user_agent TEXT,
-    platform TEXT,
-    language TEXT,
-    screen TEXT,
-    cpu_cores INTEGER,
-    device_memory REAL,
-    gpu_vendor TEXT,
-    gpu_renderer TEXT,
-    battery TEXT,
-    timezone TEXT,
-    connection TEXT,
-    fonts TEXT,
-    local_ips TEXT,
-    fingerprint TEXT,
-    referrer TEXT,
-    country TEXT,
-    region TEXT,
-    city TEXT,
-    isp TEXT,
-    lat REAL,
-    lon REAL,
-    time_on_page TEXT,
-    clicks INTEGER,
-    scroll_max TEXT,
-    raw_json TEXT,
-    created_at INTEGER DEFAULT (strftime('%s','now'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_fingerprint ON visits(fingerprint);
-  CREATE INDEX IF NOT EXISTS idx_ip ON visits(ip);
-  CREATE INDEX IF NOT EXISTS idx_time ON visits(created_at);
-`);
 
 // ===== HELPERS =====
 function getClientIP(req) {
@@ -181,25 +130,12 @@ app.post('/api/report-ip', async (req, res) => {
   `).run(visit);
 
   console.log('=== MÁY MỚI ===', ip, '|', visit.city, '|', time);
-
   sendTelegram(visit).catch(() => {});
   res.json({ ok: true });
 });
 
-// ===== ADMIN AUTH =====
-function checkAuth(req, res) {
-  const pwd = req.headers['x-admin-password'] || req.query.pwd;
-  if (pwd !== process.env.ADMIN_PASSWORD) {
-    res.status(401).json({ error: 'Sai mật khẩu' });
-    return false;
-  }
-  return true;
-}
-
-// ===== ADMIN API =====
+// ===== ADMIN API (KHÔNG CẦN MẬT KHẨU) =====
 app.get('/api/visits', (req, res) => {
-  if (!checkAuth(req, res)) return;
-
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 50;
   const offset = (page - 1) * limit;
@@ -223,8 +159,6 @@ app.get('/api/visits', (req, res) => {
 });
 
 app.get('/api/stats', (req, res) => {
-  if (!checkAuth(req, res)) return;
-
   const total = db.prepare('SELECT COUNT(*) as c FROM visits').get().c;
   const uniqueIPs = db.prepare('SELECT COUNT(DISTINCT ip) as c FROM visits').get().c;
   const uniqueFp = db.prepare('SELECT COUNT(DISTINCT fingerprint) as c FROM visits WHERE fingerprint != ""').get().c;
@@ -269,13 +203,11 @@ app.get('/api/stats', (req, res) => {
 });
 
 app.delete('/api/visits/:id', (req, res) => {
-  if (!checkAuth(req, res)) return;
   db.prepare('DELETE FROM visits WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
 app.delete('/api/visits', (req, res) => {
-  if (!checkAuth(req, res)) return;
   db.prepare('DELETE FROM visits').run();
   res.json({ ok: true });
 });
@@ -285,12 +217,10 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// ===== FALLBACK =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ===== KHỞI ĐỘNG =====
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server: http://localhost:${PORT}`);
   console.log(`📊 Admin:  http://localhost:${PORT}/admin`);
