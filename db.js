@@ -1,7 +1,16 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'visits.db'));
+const DB_PATH = process.env.RENDER
+  ? '/data/visits.db'
+  : path.join(__dirname, 'visits.db');
+
+let db;
+try {
+  db = new Database(DB_PATH);
+} catch (e) {
+  db = new Database(path.join(__dirname, 'visits.db'));
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS visits (
@@ -35,7 +44,6 @@ db.exec(`
     raw_json TEXT,
     created_at INTEGER DEFAULT (strftime('%s','now'))
   );
-
   CREATE INDEX IF NOT EXISTS idx_fingerprint ON visits(fingerprint);
   CREATE INDEX IF NOT EXISTS idx_ip ON visits(ip);
   CREATE INDEX IF NOT EXISTS idx_time ON visits(created_at);
