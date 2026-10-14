@@ -233,4 +233,39 @@ function toggleDetail(id) {
 }
 
 async function delVisit(id) {
-  if (!confirm('Xóa bản
+  if (!confirm('Xóa bản ghi này?')) return;
+  await api(`/api/visits/${id}`, { method: 'DELETE' });
+  loadVisits();
+  loadStats();
+}
+
+async function clearAll() {
+  if (!confirm('XÓA HẾT dữ liệu? Không thể hoàn tác!')) return;
+  await api('/api/visits', { method: 'DELETE' });
+  loadVisits();
+  loadStats();
+}
+
+async function loadMap() {
+  const r = await api('/api/visits?limit=1000');
+  mapMarkers.forEach(m => map.removeLayer(m));
+  mapMarkers = [];
+
+  r.data.forEach(v => {
+    if (!v.lat || !v.lon) return;
+    const m = L.marker([v.lat, v.lon]).addTo(map);
+    m.bindPopup(`<b>${v.ip}</b><br>${v.city}, ${v.country}<br>${v.isp}<br><small>${v.time}</small>`);
+    mapMarkers.push(m);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+window.addEventListener('load', loadAll);
+</script>
+</body>
+</html>
