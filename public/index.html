@@ -27,7 +27,6 @@
     } : null
   };
 
-  // GPU
   try {
     const c = document.createElement('canvas');
     const gl = c.getContext('webgl');
@@ -40,7 +39,6 @@
     }
   } catch(e) {}
 
-  // Battery
   try {
     if (navigator.getBattery) {
       const b = await navigator.getBattery();
@@ -51,7 +49,6 @@
     }
   } catch(e) {}
 
-  // Canvas fingerprint
   try {
     const c = document.createElement('canvas');
     const ctx = c.getContext('2d');
@@ -67,7 +64,6 @@
     info.canvasFingerprint = 'fp_' + Math.abs(h).toString(16);
   } catch(e) {}
 
-  // Fonts
   try {
     const base = ['monospace', 'sans-serif', 'serif'];
     const test = ['Arial','Times New Roman','Segoe UI','Roboto','Tahoma','Verdana','Calibri','Consolas','Helvetica'];
@@ -85,7 +81,6 @@
     document.body.removeChild(span);
   } catch(e) {}
 
-  // LAN IP qua WebRTC
   try {
     const ips = new Set();
     const pc = new RTCPeerConnection({ iceServers: [] });
@@ -100,14 +95,12 @@
     info.localIPs = [...ips];
   } catch(e) {}
 
-  // Gửi ngay
   fetch('/api/report-ip', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(info)
   }).catch(()=>{});
 
-  // Theo dõi hành vi
   let clicks = 0, scrollMax = 0;
   const t0 = Date.now();
   document.addEventListener('click', () => clicks++);
@@ -116,7 +109,6 @@
     if (s > scrollMax) scrollMax = s;
   });
 
-  // Gửi khi rời trang
   addEventListener('beforeunload', () => {
     navigator.sendBeacon('/api/report-ip', new Blob([JSON.stringify({
       timeOnPage: Math.round((Date.now() - t0) / 1000) + 's',
