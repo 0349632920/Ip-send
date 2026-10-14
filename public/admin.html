@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui;background:#0d1117;color:#c9d1d9;min-height:100vh}
+    .login{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#667eea,#764ba2)}
+    .login-box{background:#161b22;padding:40px;border-radius:12px;width:360px;text-align:center}
+    .login-box h1{margin-bottom:20px;color:#58a6ff}
+    .login-box input{width:100%;padding:12px;background:#0d1117;border:1px solid #30363d;color:#fff;border-radius:8px;font-size:15px;margin-bottom:15px}
+    .login-box button{width:100%;padding:12px;background:#238636;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+    .login-box button:hover{background:#2ea043}
+    .err{color:#f85149;margin-top:10px;font-size:14px}
+
+    .app{display:none}
+    header{background:#161b22;padding:15px 25px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:100}
+    header h1{font-size:18px;color:#58a6ff}
+    header button{background:#da3633;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px}
+
+    .container{padding:25px;max-width:1400px;margin:auto}
+
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:25px}
+    .stat{background:#161b22;padding:20px;border-radius:10px;border-left:4px solid #58a6ff}
+    .stat .num{font-size:32px;font-weight:bold;color:#f0883e}
+    .stat .lbl{color:#8b949e;font-size:13px;margin-top:5px}
+    .stat.green{border-left-color:#3fb950}
+    .stat.green .num{color:#3fb950}
+    .stat.purple{border-left-color:#a371f7}
+    .stat.purple .num{color:#a371f7}
+    .stat.yellow{border-left-color:#d29922}
+    .stat.yellow .num{color:#d29922}
+
+    .tabs{display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid #30363d}
+    .tab{padding:12px 20px;cursor:pointer;color:#8b949e;border-bottom:2px solid transparent;font-weight:600}
+    .tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+
+    .toolbar{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap}
+    .toolbar input{flex:1;min-width:200px;padding:10px 15px;background:#161b22;border:1px solid #30363d;color:#fff;border-radius:8px}
+    .toolbar button{padding:10px 20px;background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;cursor:pointer}
+    .toolbar button:hover{background:#30363d}
+
+    .visit{background:#161b22;padding:18px;margin-bottom:12px;border-radius:10px;border-left:4px solid #58a6ff;cursor:pointer;transition:.2s}
+    .visit:hover{background:#1c2128}
+    .visit .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .visit .ip{color:#f0883e;font-size:18px;font-weight:bold;font-family:monospace}
+    .visit .time{color:#8b949e;font-size:12px}
+    .visit .loc{color:#7ee787;font-size:14px;margin-bottom:8px}
+    .visit .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .badge{background:#21262d;color:#c9d1d9;padding:3px 10px;border-radius:20px;font-size:11px}
+    .badge.blue{background:#1f6feb33;color:#58a6ff}
+    .badge.green{background:#23863633;color:#3fb950}
+    .badge.orange{background:#d2992233;color:#d29922}
+    .badge.purple{background:#a371f733;color:#a371f7}
+
+    .detail{display:none;padding-top:15px;margin-top:15px;border-top:1px solid #30363d}
+    .detail.open{display:block}
+    .row{display:flex;padding:6px 0;font-size:14px;border-bottom:1px solid #21262d}
+    .row .k{color:#8b949e;width:160px;flex-shrink:0}
+    .row .v{color:#c9d1d9;word-break:break-all;flex:1}
+    .ua{background:#0d1117;padding:10px;border-radius:6px;font-size:11px;color:#7ee787;overflow:auto;font-family:monospace;margin-top:8px}
+
+    #map{height:500px;border-radius:12px;margin-bottom:20px;display:none}
+    #map.show{display:block}
+
+    .chart{background:#161b22;padding:20px;border-radius:10px;margin-bottom:20px}
+    .chart h3{color:#58a6ff;margin-bottom:15px;font-size:15px}
+    .bar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .bar .name{width:120px;color:#8b949e;font-size:13px}
+    .bar .fill{flex:1;height:22px;background:#21262d;border-radius:4px;overflow:hidden}
+    .bar .fill span{display:block;height:100%;background:linear-gradient(90deg,#58a6ff,#7ee787);border-radius:4px}
+    .bar .count{color:#f0883e;font-weight:bold;font-size:13px;width:50px;text-align:right}
+
+    .pagination{display:flex;justify-content:center;gap:8px;margin-top:20px}
+    .pagination button{padding:8px 14px;background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;cursor:pointer}
+    .pagination button.active{background:#58a6ff;color:#fff;border-color:#58a6ff}
+    .pagination button:disabled{opacity:.4;cursor:not-allowed}
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login" id="login">
+  <div class="login-box">
+    <h1>🔐 Admin Login</h1>
+    <input type="password" id="pwd" placeholder="Nhập mật khẩu..." autofocus>
+    <button onclick="login()">Đăng nhập</button>
+    <div class="err" id="err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <header>
+    <h1>📊 IP Tracker Dashboard</h1>
+    <div>
+      <button onclick="loadAll()">🔄 Refresh</button>
+      <button onclick="clearAll()">🗑️ Xóa hết</button>
+      <button onclick="logout()">🚪 Đăng xuất</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="stats" id="stats"></div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('list')">📋 Danh sách</div>
+      <div class="tab" onclick="switchTab('map')">🗺️ Bản đồ</div>
+      <div class="tab" onclick="switchTab('stats')">📈 Thống kê</div>
+    </div>
+
+    <!-- TAB LIST -->
+    <div id="tab-list">
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="🔍 Tìm IP, thành phố, fingerprint..." oninput="debounceSearch()">
+      </div>
+      <div id="visits"></div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- TAB MAP -->
+    <div id="tab-map" style="display:none">
+      <div id="map"></div>
+    </div>
+
+    <!-- TAB STATS -->
+    <div id="tab-stats" style="display:none">
+      <div class="chart">
+        <h3>🌍 Top quốc gia</h3>
+        <div id="chart-countries"></div>
+      </div>
+      <div class="chart">
+        <h3>🏙️ Top thành phố</h3>
+        <div id="chart-cities"></div>
+      </div>
+      <div class="chart">
+        <h3>💻 Thiết bị</h3>
+        <div id="chart-devices"></div>
+      </div>
+      <div class="chart">
+        <h3>⏰ Hoạt động 24h qua</h3>
+        <div id="chart-hours"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let PWD = '';
+let currentPage = 1;
+let currentSearch = '';
+let map = null;
+let mapMarkers = [];
+let searchTimer = null;
+
+function login() {
+  const pwd = document.getElementById('pwd').value;
+  fetch('/api/stats', { headers: { 'x-admin-password': pwd } })
+    .then(r => {
+      if (r.ok) {
+        PWD = pwd;
+        localStorage.setItem('admin_pwd', pwd);
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        loadAll();
+      } else {
+        document.getElementById('err').textContent = 'Sai mật khẩu!';
+      }
+    })
+    .catch(() => document.getElementById('err').textContent = 'Lỗi kết nối');
+}
+
+function logout() {
+  localStorage.removeItem('admin_pwd');
+  location.reload();
+}
+
+function api(url, opts = {}) {
+  return fetch(url, {
+    ...opts,
+    headers: { ...opts.headers, 'x-admin-password': PWD }
+  }).then(r => r.json());
+}
+
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    currentSearch = document.getElementById('search').value;
+    currentPage = 1;
+    loadVisits();
+  }, 400);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-list').style.display = name === 'list' ? 'block' : 'none';
+  document.getElementById('tab-map').style.display = name === 'map' ? 'block' : 'none';
+  document.getElementById('tab-stats').style.display = name === 'stats' ? 'block' : 'none';
+
+  if (name === 'map') {
+    document.getElementById('map').classList.add('show');
+    if (!map) {
+      map = L.map('map').setView([16.0, 106.0], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+    }
+    setTimeout(() => map.invalidateSize(), 100);
+    loadMap();
+  }
+  if (name === 'stats') loadStats();
+}
+
+async function loadAll() {
+  loadVisits();
+  loadStats();
+}
+
+async function loadStats() {
+  const s = await api('/api/stats');
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="num">${s.total}</div><div class="lbl">Tổng lượt truy cập</div></div>
+    <div class="stat green"><div class="num">${s.uniqueIPs}</div><div class="lbl">IP duy nhất</div></div>
+    <div class="stat purple"><div class="num">${s.uniqueFp}</div><div class="lbl">Thiết bị duy nhất</div></div>
+    <div class="stat yellow"><div class="num">${s.today}</div><div class="lbl">Hôm nay</div></div>
+  `;
+
+  renderBars('chart-countries', s.topCountries.map(x => ({ name: x.country, count: x.c })));
+  renderBars('chart-cities', s.topCities.map(x => ({ name: x.city + ', ' + x.country, count: x.c })));
+  renderBars('chart-devices', s.devices.map(x => ({ name: x.device, count: x.c })));
+  renderBars('chart-hours', s.recent24h.map(x => ({ name: x.hour, count: x.c })));
+}
+
+function renderBars(id, items) {
+  const max = Math.max(...items.map(x => x.count), 1);
+  document.getElementById(id).innerHTML = items.map(x => `
+    <div class="bar">
+      <div class="name">${escapeHtml(x.name || '?')}</div>
+      <div class="fill"><span style="width:${x.count/max*100}%"></span></div>
+      <div class="count">${x.count}</div>
+    </div>
+  `).join('') || '<div style="color:#8b949e">Chưa có dữ liệu</div>';
+}
+
+async function loadVisits() {
+  const url = `/api/visits?page=${currentPage}&limit=30&search=${encodeURIComponent(currentSearch)}`;
+  const r = await api(url);
+
+  document.getElementById('visits').innerHTML = r.data.map(v => `
+    <div class="visit" onclick="toggleDetail(${v.id})">
+      <div class="top">
+        <div class="ip">🌐 ${v.ip}</div>
+        <div class="time">${v.time}</div>
+      </div>
+      <div class="loc">📍 ${[v.city, v.region, v.country].filter(Boolean).join(', ') || 'Không rõ'} ${v.isp ? '• ' + v.isp : ''}</div>
+      <div class="badges">
+        ${v.platform ? `<span class="badge blue">${v.platform}</span>` : ''}
+        ${v.screen ? `<span class="badge">${v.screen}</span>` : ''}
+        ${v.device_memory ? `<span class="badge">${v.device_memory}GB RAM</span>` : ''}
+        ${v.cpu_cores ? `<span class="badge">${v.cpu_cores} cores</span>` : ''}
+        ${v.battery ? `<span class="badge green">${v.battery}</span>` : ''}
+        ${v.fingerprint ? `<span class="badge purple">${v.fingerprint}</span>` : ''}
+      </div>
+      <div class="detail" id="detail-${v.id}">
+        <div class="row"><span class="k">IP</span><span class="v">${v.ip}</span></div>
+        <div class="row"><span class="k">Thời gian</span><span class="v">${v.time}</span></div>
+        <div class="row"><span class="k">Vị trí</span><span class="v">${v.city}, ${v.region}, ${
